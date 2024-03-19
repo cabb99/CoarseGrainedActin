@@ -42,7 +42,7 @@ if __name__ == '__main__':
                   # "runSteps":[10000000],
                   "abp": ['FAS', 'CAM', 'CBP', 'AAC', 'AAC2', 'CAM2'],
                   "simulation_platform": ["OpenCL"]}
-    test_parameters = {"simulation_platform": "CPU",
+    test_parameters = {"simulation_platform": "OpenCL",
                        "abp": 'CAM',
                        "layers": 2,
                        "epsilon": 100,
@@ -93,6 +93,9 @@ if __name__ == '__main__':
         colliding_distance = d/4 #TODO: calculate correct distance CAM
 
     # Set the points in the actin network
+    
+    # nusayba- this is where the cactin + crosslinker being made 
+
     import random
 
     full_model = []
@@ -229,7 +232,7 @@ if __name__ == '__main__':
 
     extra_bonds = pd.DataFrame(extra_bonds, columns=s.bonds.columns,
                                index=range(s.bonds.index.max() + 1, s.bonds.index.max() + 1 + len(extra_bonds)))
-    s.bonds = s.bonds.append(extra_bonds)
+    s.bonds = pd.concat([s.bonds, extra_bonds], ignore_index=True)
 
     # Check that the bonds correspond with the correct molecule
     s.bonds = s.bonds[(s.bonds['molecule'] == s.atom_list['residue_name'].loc[s.bonds['i']].values) |

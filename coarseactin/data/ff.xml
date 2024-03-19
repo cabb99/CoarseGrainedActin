@@ -67,6 +67,13 @@
       <Atom name="Cb" type="Cb"/>
       <Atom name="Cd" type="Cb"/>
     </Residue>
+    <Residue name="AAC">
+      <Atom name="Ca" type="Cb"/>
+      <Atom name="Cb" type="Cb"/>
+      <Atom name="Cd" type="Cb"/>
+      <Atom name="Cy1" type="Cm"/>
+      <Atom name="Cy2" type="Cm"/>
+    </Residue>
     <Residue name="Bead">
       <Atom name="B" type="B"/>
     </Residue>

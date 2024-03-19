@@ -4,6 +4,7 @@ import itertools
 import pandas
 import time
 import typing
+from pathlib import Path
 
 
 class SlurmJobArray:
@@ -51,6 +52,7 @@ class SlurmJobArray:
                 test_parameters={"simulation_platform":"CPU"}
         job_id: int | str
         """
+        name = Path(name)
         self.all_parameters = parameters
         self.test_parameters = test_parameters
         if test_parameters is None:
@@ -81,6 +83,13 @@ class SlurmJobArray:
                 warnings.warn("JobID not set")
                 job_id = 0
 
+        #Create directory if it does not exist
+        parent = Path(name).parent
+        try:
+            parent.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            print(f"The directory {str(parent)} already exists")
+        
         # Set job id
         self.job_id = job_id
 

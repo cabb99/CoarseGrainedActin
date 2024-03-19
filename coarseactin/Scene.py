@@ -278,12 +278,12 @@ class Scene(pandas.DataFrame):
         return cls(model)
 
     # Writing
-    def write_pdb(self, file=None, verbose=False):
+    def write_pdb(self, file_name=None, verbose=False):
 
         # TODO Add connectivity output
         # Fill empty columns
         if verbose:
-            print(f"Writing pdb file ({len(self)} atoms): {file}")
+            print(f"Writing pdb file ({len(self)} atoms): {file_name}")
 
         pdb_table = self.copy()
         pdb_table['serial'] = np.arange(1, len(self) + 1) if 'serial' not in pdb_table else pdb_table['serial']
@@ -319,13 +319,13 @@ class Scene(pandas.DataFrame):
             assert len(line) == 80, f'An item in the atom table is longer than expected\n{line}'
             lines += line + '\n'
 
-        if file is None:
+        if file_name is None:
             return io.StringIO(lines)
         else:
-            with open(file, 'w+') as out:
+            with open(file_name, 'w+') as out:
                 out.write(lines)
 
-    def write_cif(self, file=None, verbose=False):
+    def write_cif(self, file_name=None, verbose=False):
         """Write a PDBx/mmCIF file.
 
         Parameters
@@ -362,7 +362,7 @@ class Scene(pandas.DataFrame):
         """
         # TODO Add connectivity output
         if verbose:
-            print(f"Writing cif file ({len(self)} atoms): {file}")
+            print(f"Writing cif file ({len(self)} atoms): {file_name}")
 
         # Fill empty columns
         pdbx_table = self.copy()
@@ -424,15 +424,15 @@ class Scene(pandas.DataFrame):
         lines += ''.join(pdbx_table['line'])
         lines += '#\n'
 
-        if file is None:
+        if file_name is None:
             return io.StringIO(lines)
         else:
-            with open(file, 'w+') as out:
+            with open(file_name, 'w+') as out:
                 out.write(lines)
 
-    def write_gro(self, file, box_size=None, verbose=False):
+    def write_gro(self, file_name, box_size=None, verbose=False):
         if verbose:
-            print(f"Writing pdb file ({len(self)} atoms): {file}")
+            print(f"Writing pdb file ({len(self)} atoms): {file_name}")
 
         gro_line = "%5d%-5s%5s%5d%8s%8s%8s%8s%8s%8s\n"
         pdb_atoms = self.copy()
@@ -449,7 +449,7 @@ class Scene(pandas.DataFrame):
         self.zmin, self.zmax = 0, box_size
         resSeq = 0
 
-        with open(file, 'w+') as f:
+        with open(file_name, 'w+') as f:
             f.write('Generated Model\n')
             f.write('%5i\n' % len(pdb_atoms))
             chain = 'NoChain'

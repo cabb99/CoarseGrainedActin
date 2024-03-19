@@ -1,6 +1,5 @@
-#!/home/cab22/miniconda3/bin/python
+#!/home/ne25/miniconda3/envs/openmm/bin/python
 #SBATCH --account=commons
-#SBATCH --output ./Simulations_nots/Box/slurm-%A_%a.out
 #SBATCH --export=All
 #SBATCH --partition=commons
 #SBATCH --time=24:00:00
@@ -9,12 +8,14 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --gres=gpu:1
 #SBATCH --export=ALL
-#SBATCH --array=0-23
+#SBATCH --mail-user=ne25@rice.edu
+#SBATCH --mail-type=ALL
+#SBATCH --array=0-47 
 #SBATCH --mem=16G
 
 import sys # Import the sys module for interacting with the Python interpreter
-# sys is a module that gives access to variables and functions
-import coarseactin # imports custom module called coarseactin
+# sys is a module that gives access to variables and ufnctions
+import coarseactin # imports custom module called courseactin
 import pandas as pd # imports pandas library, excel for python
 import numpy as np # imports the numpy library, matlab for python
 import scipy.spatial.transform as strans  # Import the transform module from scipy.spatial for spatial transformations
@@ -22,43 +23,63 @@ import scipy.spatial.distance as sdist  # Import the distance module from scipy.
 import itertools # Import the itertools module for efficient looping and combination generation
 
 if __name__ == '__main__': # makes sure that the following code is executed only if the script is run directly, not importad as a 
-    # module
+    # module 
+    # module refers to a file containing a collection of Pythonacode that is organized for a particular purpose 
     ###################################
     # Setting Conditions for simulation#
     ###################################
     """ The objective of this experiment is to simulate a big system containing multiple filaments and abps 
     and observe their behavior"""
-    parameters = {"epsilon": [100, 75, 50, 25],
-                  "aligned": [False],
+    parameters = {"epsilon_ABP": [100], # each 'key' (for example epsilson) refers to a specefic value and 
+                #the corresponding value so (100) refers to the possible list of values the parameter can take
+                # affinity of the crosslinkers to the binding site  
+                  "epsilon_CAM": [100],
+                  "aligned": [True,False],
                   "actinLen": [100],
                   # "layers": [3],
-                  # "repetition":range(3),
+                  "repetition":range(3),
                   "disorder": [0],
-                  "box_size": [10000],
-                  "n_actins": [0],
-                  "n_abps": [1],
+                  "box_size": [10000,20000],
+                  "n_actins": [20],
+                  "n_FAS": [200], # TODO look for abp concentrations in brain
+                  "n_AAC": [200],
+                  "n_CBP":[0,200],
                   "temperature": [300],
                   "system2D": [False],
-                  "frequency": [1000],
+                  "frequency": [10000],
                   "run_time": [20],
-                  #"run_steps":[10000000],
-                  "abp": ['FAS', 'CAM', 'CBP', 'AAC', 'AAC2', 'CAM2'],
+                  "epsilon_electrostatics":[0,1],
+                  "actinin_electrostatics":[True], 
+                  "camkii_electrostatics":[True],
+                  # "run_steps":[10000000], # nusayba changed to run
+                  # "abp": ['FAS', 'CAM', 'CBP', 'AAC', 'AAC2', 'CAM2'], #Nusayba changed to run
                   "simulation_platform": ["OpenCL"]}
+    
+    # test_parameters is used 
     test_parameters = {"simulation_platform": "CUDA",
                        "frequency": 1,
                        "run_time": 0.01,
-                       "abp":'CBP',
-                       "epsilon":0,
-                       #"abp": 'CAM',
+                      # "abp":'CBP',
+                       # "epsilon":0,
+                      #  "abp": 'CAM', #Nusayba changed to run
                        #"CaMKII_Force": 'multigaussian',
                        }
-    job_id = 0
-    if len(sys.argv) > 1:
-        try:
-            job_id = int(sys.argv[1])
-        except TypeError:
-            pass
-    sjob = coarseactin.SlurmJobArray("Simulations/Box/Box", parameters, test_parameters, job_id)
+    
+
+   
+    #job_id = 0 # used to capture a job identifier if provided as a command-line 
+    # argument 
+
+    # # 
+    # if len(sys.argv) > 1: #argv is a parameter defined in the 'sys' module of the Python standard library
+    #     # makes sure that atleast one command-line arguments passed when executing the script
+    #     try:
+    #         job_id = int(sys.argv[1])
+    #     except TypeError:
+    #         pass
+  
+    sjob = coarseactin.SlurmJobArray("Simulations_scratch/Box_electrostatics_comparison_conditions/Run1", parameters, test_parameters) #This line creates an instance of the SlurmJobArray class from the coarseactin module. The constructor of the SlurmJobArray class takes four arguments: a file path "Simulations/Box/Boxv3", dictionaries parameters and test_parameters, and the job_id variable. This instance of sjob represents a job array for SLURM job submission.
+    #sjob = coarseactin.SlurmJobArray("/Users/nusaybaelali/documents/fis/coarsegrainedactin/simulations/box/boxv6", parameters, test_parameters, job_id)
     sjob.print_parameters()
     sjob.print_slurm_variables()
     sjob.write_csv()
@@ -73,10 +94,19 @@ if __name__ == '__main__': # makes sure that the following code is executed only
     actinLen = sjob["actinLen"]
     Sname = sjob.name
     simulation_platform = sjob["simulation_platform"]
-    if sjob['abp'] in ['CAM','CAM2']:
-        camkii_force='multigaussian'
-    else:
-        camkii_force = 'abp'
+
+    size_factor = int(sjob['box_size']/10000)
+    actinLen = sjob["actinLen"]*size_factor
+    n_actins = sjob["n_actins"]*size_factor**2
+    n_FAS = sjob["n_FAS"]*size_factor**3        
+    n_AAC = sjob["n_AAC"]*size_factor**3 
+    n_CBP = sjob["n_CBP"]*size_factor**3 
+
+
+    # if sjob['abp'] in ['CAM','CAM2']:
+    #     camkii_force='multigaussian'
+    # else:
+    #     camkii_force = 'abp'
 
     ###################
     # Build the model #
@@ -86,20 +116,31 @@ if __name__ == '__main__': # makes sure that the following code is executed only
 
     full_model = []
     #Add actins
-    for i in range(sjob["n_actins"]):
-        full_model += [coarseactin.create_actin(length=sjob["actinLen"],
+    for i in range(n_actins):
+        full_model += [coarseactin.create_actin(length=actinLen,
                        translation=np.random.random(3)*sjob["box_size"],
                        rotation=strans.Rotation.random().as_matrix(),
                        abp=None)]
-    #Add ABPs
-    for i in range(sjob["n_abps"]):
+    #Add FAS
+    for i in range(n_FAS):
         full_model += [coarseactin.create_abp(translation=np.random.random(3)*sjob["box_size"],
                        rotation=strans.Rotation.random().as_matrix(),
-                       abp=sjob['abp'])]
+                       abp="FAS")]
+        
+    #Add AAC
+    for i in range(n_AAC):
+        full_model += [coarseactin.create_abp(translation=np.random.random(3)*sjob["box_size"],
+                       rotation=strans.Rotation.random().as_matrix(),
+                       abp="AAC")]
 
+    #Add CBP
+    for i in range(n_CBP):
+        full_model += [coarseactin.create_abp(translation=np.random.random(3)*sjob["box_size"],
+                       rotation=strans.Rotation.random().as_matrix(),
+                       abp="CBP")]
+        
     print('Concatenate chains')
     full_model = coarseactin.Scene.concatenate(full_model)
-
     full_model = coarseactin.Scene(full_model.sort_values(['chainID', 'resSeq', 'name']))
     full_model.loc[:, 'chain_resid'] = full_model[['chainID', 'resSeq']].astype(str).T.apply(
         lambda x: '_'.join([str(a) for a in x]))
@@ -123,6 +164,7 @@ if __name__ == '__main__': # makes sure that the following code is executed only
     import simtk.unit as u
     import time
     from sys import stdout
+    import numpy as np
 
     time.ctime()
 
@@ -139,7 +181,7 @@ if __name__ == '__main__': # makes sure that the following code is executed only
         assert len(cm.index) == len(cb.index)
         assert len(cm.index) == 12
         for i0, i1 in zip(cm.index,cb.index):
-            extra_bonds += [['CBP', i0, i1, 0, 10, 0, 31.77, 0, '1Cb-2Cb']]
+            extra_bonds += [['CBP', 'harmonic', i0, i1, 0, 10, 0, 50.00, 0, np.nan, np.nan,'1Cb-2Cb']]
 
     extra_bonds=pd.DataFrame(extra_bonds,columns=s.bonds.columns,index=range(s.bonds.index.max() + 1,s.bonds.index.max() + 1+ len(extra_bonds)))
     s.bonds = pd.concat([s.bonds, extra_bonds], ignore_index=True)
@@ -149,7 +191,52 @@ if __name__ == '__main__': # makes sure that the following code is executed only
                        s.bonds['molecule'].isin(['Actin-ADP', 'ABP', 'CaMKII'])]
 
     print(s.system.getDefaultPeriodicBoxVectors())
-    s.setForces(AlignmentConstraint=aligned, PlaneConstraint=system2D, CaMKII_Force=camkii_force)
+
+    # if sjob["n_CAM"]>0:
+    #     s.setForces(AlignmentConstraint=aligned, PlaneConstraint=system2D, forces=['multigaussian','abp'])
+    # else: 
+    s.setForces(AlignmentConstraint=aligned, PlaneConstraint=system2D, forces=['abp'])
+
+    
+    # Add electrostatics
+    electrostatics = openmm.CustomNonbondedForce("epsilon_electrostatics*q1*q2/r*exp(-kappa_electrostatics*r)") # Debye-Huckel (kJ/mol)
+    if s.periodic_box is not None:
+        electrostatics.setNonbondedMethod(electrostatics.CutoffPeriodic)
+    else:
+        electrostatics.setNonbondedMethod(electrostatics.CutoffNonPeriodic)
+    
+    electrostatics.addPerParticleParameter("q")
+    electrostatics.addGlobalParameter("epsilon_electrostatics", 1.736385125*sjob["epsilon_electrostatics"])  #1.736385125 # Calculated by Nusayba and Carlos Find good values (# Look for other papers with a similar equation, Columb, Debye-Huckel, etc.)(nm/charge2)
+    electrostatics.addGlobalParameter("kappa_electrostatics",1) #  https://doi.org/10.3389/fcell.2023.1071977, Find good values (# Screening length of water (related to dielectrics)) (nm-1)
+    electrostatics.setCutoffDistance(40*openmm.unit.nanometers)
+    electrostatics.setUseLongRangeCorrection(True)
+    # Add charges to particles
+    for _, a in s.atom_list.iterrows():
+        if a.residue_name in ['ACT','ACD'] and a.name in ['A1','A2','A3','A4']:
+            q=-2.5 #Calculated by counting the charge of the sequence. Find good values (Charge or actin per subunit or per monomer) Charge units
+        elif a.residue_name in ['FAS']:
+            q=3.3/6 #Calculated by counting the charge of the sequence. Find good values (Charge or actin per subunit or per monomer) Charge units
+        elif a.residue_name in ['AAC']:
+            if sjob["actinin_electrostatics"]:
+                q=-31.0/3 #Calculated by counting the charge of the sequence. Find good values (Charge or actin per subunit or per monomer) Charge units
+            else:
+                q=0
+        elif a.residue_name in ['CBP'] and a.name in ['C01', 'C02', 'C03', 'C04', 'C05', 'C06', 'C07', 'C08', 'C09', 'C10', 'C11', 'C12']: 
+            if sjob["camkii_electrostatics"]: 
+                q=-3.5
+            else:
+                q=0
+        elif a.residue_name in ['CBP'] and a.name in ['Ca','Cb','Cd']: 
+            if sjob["camkii_electrostatics"]: 
+                q=8
+            else:
+                q=0
+        else:
+            q=0
+        electrostatics.addParticle([q]) 
+    electrostatics.createExclusionsFromBonds(s.bonds[['i', 'j']].values.tolist(), 3)
+    s.system.addForce(electrostatics)
+    
     top = openmm.app.PDBxFile(f'{Sname}.cif')
     coord = openmm.app.PDBxFile(f'{Sname}.cif')
 
@@ -160,7 +247,12 @@ if __name__ == '__main__': # makes sure that the following code is executed only
     simulation.context.setPositions(coord.positions)
 
     # Modify parameters
-    simulation.context.setParameter("g_eps", sjob["epsilon"])
+    # if sjob["n_CAM"]>0:
+    #     simulation.context.setParameter("g_eps", sjob["epsilon_CAM"])
+    
+    # simulation.context.setParameter("g_eps_ABP", sjob["epsilon_ABP"])
+    # simulation.context.setParameter("g_eps_ABP", sjob["epsilon_ABP"])
+
 
     frequency = sjob["frequency"]
     # Add reporters
@@ -174,7 +266,7 @@ if __name__ == '__main__': # makes sure that the following code is executed only
 
     #Change simulation parameters
     #simulation.context.setParameter("w1", 5)
-    simulation.context.setParameter("g_eps", sjob['epsilon'])
+    #  simulation.context.setParameter("g_eps", sjob['epsilon'])
 
     # Print initial energy
     state = simulation.context.getState(getEnergy=True)

@@ -60,7 +60,6 @@ setup(
     download_url = '',
     keywords = ['actin', 'forcefield', 'openmm'],
     package_data={'coarseactin': glob.glob("data/*")},
-    include_package_data=True,
     classifiers=[
         'Development Status :: 3 - Alpha', 
         'Intended Audience :: Science/Research', 

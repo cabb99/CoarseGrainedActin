@@ -52,27 +52,34 @@ optimized_sigma = md_fit.sigma
 ### Energy
 
 This class implements V_fit, a forcefield potential that can be included in a openmm molecular dynamics simulation. 
+
 $$ V = V_{ff} +V_{Fit}$$
-The potential is defined in terms of the correlation coefficient (c.c.), which is a function of the experimental and simulated densities at each voxel $ (i, j, k) $.:
-The effective potential $ V_{Fit} $ is given by:
+
+The potential is defined in terms of the correlation coefficient (c.c.), which is a function of the experimental and simulated densities at each voxel $(i, j, k)$.:
+The effective potential $V_{Fit}$ is given by:
+
 $$ V_{Fit} = k (1 - \text{c.c.}) $$
+
 And the correlation coefficient (c.c.) is defined as:
+
 $$ \text{c.c.} = \frac{\sum_{ijk} \rho_{\text{exp}}(i,j,k) \rho_{\text{sim}}(i,j,k)}{\sqrt{\sum_{ijk} \rho_{\text{exp}}(i,j,k)^2} \sqrt{\sum_{ijk} \rho_{\text{sim}}(i,j,k)^2}} $$
-where $ \rho_{\text{exp}}(i,j,k) $ and $ \rho_{\text{sim}}(i,j,k) $ represent the experimental and synthetically simulated density of each voxel $ (i,j,k) $, respectively.
-The synthetically simulated density $ \rho_{\text{sim}}(i,j,k) $ is obtained by integrating the three-dimensional Gaussian function over each voxel:
+
+where $\rho_{\text{exp}}(i,j,k)$ and $\rho_{\text{sim}}(i,j,k)$ represent the experimental and synthetically simulated density of each voxel $(i,j,k)$, respectively.
+The synthetically simulated density $\rho_{\text{sim}}(i,j,k)$ is obtained by integrating the three-dimensional Gaussian function over each voxel:
+
 $$ \rho_{\text{sim}}(i,j,k) = \sum_{n=1}^N \int_{V_{ijk}} g(x,y,z;x_n,y_n,z_n) \, dx \, dy \, dz $$
 
-with the Gaussian function for the particle $ n $, $ g(x,y,z;x_n,y_n,z_n) $, is defined as:
+with the Gaussian function for the particle $n$, $g(x,y,z;x_n,y_n,z_n)$, is defined as:
 
 $$
-g(x,y,z;x_n,y_n,z_n,\sigma_{x,n},\sigma_{y,n},\sigma_{z,n})  = \frac{1}{(2\pi)^{\frac{3}{2}}\sigma_{x,n}\sigma_{y,n}\sigma_{z,n}} \exp\left( -\frac{1}{2} \left[ \frac{(x-x_n)^2}{\sigma_{x,n}^2} + \frac{(y-y_n)^2}{\sigma_{y,n}^2} + \frac{(z-z_n)^2}{\sigma_{z,n}^2} \right] \right)
+g(x,y,z;x_n,y_n,z_n,\sigma_{x,n},\sigma_{y,n},\sigma_{z,n},\epsilon_n)  = \frac{\epsilon_n}{(2\pi)^{\frac{3}{2}}\sigma_{x,n}\sigma_{y,n}\sigma_{z,n}} \exp\left( -\frac{1}{2} \left[ \frac{(x-x_n)^2}{\sigma_{x,n}^2} + \frac{(y-y_n)^2}{\sigma_{y,n}^2} + \frac{(z-z_n)^2}{\sigma_{z,n}^2} \right] \right)
 $$
 
 Then the integral for each box can be written as 
 
-$$ \rho_{\text{sim}}(i,j,k) = \sum_{n=1}^N \int_{x_i^{min}}^{x_i^{max}} \int_{y_j^{min}}^{y_j^{max}} \int_{z_j^{min}}^{z_j^{max}} g(x,y,z;x_n,y_n,z_n,\sigma_{x,n},\sigma_{y,n},\sigma_{z,n}) \, dz \, dy \, dx $$
+$$ \rho_{\text{sim}}(i,j,k) = \sum_{n=1}^N \left( \epsilon_n \int_{x_i^{min}}^{x_i^{max}} \int_{y_j^{min}}^{y_j^{max}} \int_{z_j^{min}}^{z_j^{max}} g(x,y,z;x_n,y_n,z_n,\sigma_{x,n},\sigma_{y,n},\sigma_{z,n}) \, dz \, dy \, dx \right )$$
 
-Where $x_i^{min}$, $x_i^{max}$, $y_j^{min}$, $y_j^{max}$, $z_j^{min}$, and $z_j^{max}$ are the boundaries in x, y and z for the voxel $(i,j,k)$. The solution to this integral, involves the error function ($\text{erf}$), which is a special function integral of the Gaussian function. For a Gaussian distribution with mean $\mu$ and standard deviation $\sigma$, the integral over a finite range can be expressed using the error function as follows:
+Where $x_i^{min}$, $x_i^{max}$, $y_j^{min}$, $y_j^{max}$, $z_j^{min}$, and $z_j^{max}$ are the boundaries in x, y and z for the voxel $(i,j,k)$. The solution to this integral, involves the error function ( $\text{erf}$ ). For a Gaussian distribution with mean $\mu$ and standard deviation $\sigma$, the integral over a finite range can be expressed using the error function as follows:
 
 $$ \Phi(x; \mu, \sigma) = \frac{1}{2} \left[ 1 + \text{erf}\left( \frac{x-\mu}{\sigma\sqrt{2}} \right) \right] $$
 
@@ -82,11 +89,11 @@ $$ \text{erf}(x) = \frac{2}{\sqrt{\pi}} \int_{0}^{x} e^{-t^2} dt $$
 
 To compute the integral of the 3D Gaussian over the finite box, we apply the CDF for each dimension:
 
-$$ \rho_{\text{sim}}(i,j,k) = \sum_{n=1}^N \left( \Phi(x_i^{max}; x_n, \sigma_{x,n}) - \Phi(x_i^{min}; x_n, \sigma_{x,n}) \right) \times \left( \Phi(y_j^{max}; y_n, \sigma_{y,n}) - \Phi(y_j^{min}; y_n, \sigma_{y,n}) \right) \times \left( \Phi(z_k^{max}; z_n, \sigma_{z,n}) - \Phi(z_k^{min}; z_n, \sigma_{z,n}) \right) $$
+$$ \rho_{\text{sim}}(i,j,k) = \sum_{n=1}^N \epsilon_n \times \left( \Phi(x_i^{max}; x_n, \sigma_{x,n}) - \Phi(x_i^{min}; x_n, \sigma_{x,n}) \right) \times \left( \Phi(y_j^{max}; y_n, \sigma_{y,n}) - \Phi(y_j^{min}; y_n, \sigma_{y,n}) \right) \times \left( \Phi(z_k^{max}; z_n, \sigma_{z,n}) - \Phi(z_k^{min}; z_n, \sigma_{z,n}) \right) $$
 
 ### Derivatives
 
-To compute the derivative of $ V_{Fit} $ with respect to the coordinates of the nth atom $ (x_n, y_n, z_n) $, we need to apply the chain rule to the derivative of $ V_{Fit} $ in terms of c.c. and then the derivative of c.c. in terms of $ (x_n, y_n, z_n) $. Like $ V_{Fit} $ with respect to a variable $v$ is:
+To compute the derivative of $V_{Fit}$ with respect to the coordinates of the nth atom $(x_n, y_n, z_n)$, we need to apply the chain rule to the derivative of $V_{Fit}$ in terms of c.c. and then the derivative of c.c. in terms of $(x_n, y_n, z_n)$. Like $V_{Fit}$ with respect to a variable $v$ is:
 
 $$ \frac{\partial V_{Fit}}{\partial v} = \frac{\partial V_{Fit}}{\partial \text{c.c}} \left( \frac{\partial \text{c.c}}{\partial \rho_{sim}} \left( \frac{\partial \rho_{sim}}{\partial x_n} \right) \right) $$
 
@@ -101,19 +108,22 @@ The second derivative is a function of $\rho_{sim}$:
 $$
 \frac{d\text{c.c.}}{dv} = \frac{\sum_{ijk} \frac{\partial \rho_{\text{sim}}(i,j,k)}{\partial v} \cdot \rho_{\text{exp}}(i,j,k)}{\sqrt{\sum_{ijk} \rho_{\text{sim}}(i,j,k)^2} \cdot \sqrt{\sum_{ijk} \rho_{\text{exp}}(i,j,k)^2}} - \frac{\sum_{ijk} 2 \cdot \rho_{\text{sim}}(i,j,k) \cdot \frac{\partial \rho_{\text{sim}}(i,j,k)}{\partial v} \cdot \sum_{lmn} \rho_{\text{sim}}(l,m,n) \cdot \rho_{\text{exp}}(l,m,n)}{2 \cdot \left( \sum_{ijk} \rho_{\text{sim}}(i,j,k)^2 \right)^{\frac{3}{2}} \cdot \sqrt{\sum_{ijk} \rho_{\text{exp}}(i,j,k)^2}}
 $$
-Where $ \rho_{\text{exp}}(i,j,k) $ represents the experimental density at the voxel located at indices (i, j, k), $ \rho_{\text{sim}}(i,j,k) $ is the simulated density at the voxel (i, j, k), which is a function of the molecular coordinates and parameters like sigma, and $ \frac{\partial \rho_{\text{sim}}(i,j,k)}{\partial v} $ denotes the partial derivative of the simulated density at voxel (i, j, k) with respect to a variable $v$ which can be the coordinates or sigma.
 
-The derivatives of the function $ \Phi(x; \mu, \sigma) = \frac{1}{2} \left[ 1 + \text{erf}\left( \frac{x-\mu}{\sigma\sqrt{2}} \right) \right] $ are as follows:
+Where $\rho_{\text{exp}}(i,j,k)$ represents the experimental density at the voxel located at indices (i, j, k), $\rho_{\text{sim}}(i,j,k)$ is the simulated density at the voxel $(i, j, k)$, which is a function of the molecular coordinates and parameters like sigma, and $\frac{\partial \rho_{\text{sim}}(i,j,k)}{\partial v}$ denotes the partial derivative of the simulated density at voxel $(i, j, k)$ with respect to a variable $v$ which can be the coordinates or sigma.
+
+The derivatives of the function $\Phi(x; \mu, \sigma) = \frac{1}{2} \left[ 1 + \text{erf}\left( \frac{x-\mu}{\sigma\sqrt{2}} \right) \right]$ are as follows:
 
 - In terms of $\mu$:
+
 $$ \frac{\partial \Phi}{\partial \mu} = -\frac{e^{-\frac{(x -\mu)^2}{2\sigma^2}}}{\sqrt{2\pi}\sigma} $$
 
 - In terms of $\sigma$:
+
 $$ \frac{\partial \Phi}{\partial \sigma} = -\frac{(x - \mu)e^{-\frac{(x - \mu)^2}{2\sigma^2}}}{\sqrt{2\pi}\sigma^2} $$
 
-Then the derivative of $ \frac{\partial \rho_{\text{sim}}(i,j,k)}{\partial x_n} $ would be for example: 
+Then the derivative of $\frac{\partial \rho_{\text{sim}}(i,j,k)}{\partial x_n}$ would be for example: 
 
 $$
-\frac{\partial \rho_{\text{sim}}(i,j,k)}{\partial x_n} = \left( \frac{e^{\frac{-(x_i^{max} - x_n)^2}{2\sigma_{x,n}^2}} - e^{\frac{-(x_i^{min} - x_n)^2}{2\sigma_{x,n}^2}}}{\sqrt{2\pi}\sigma_{x,n}} \right) \times \left( \Phi(y_j^{max}; y_n, \sigma_{y,n}) - \Phi(y_j^{min}; y_n, \sigma_{y,n}) \right) \times \left( \Phi(z_k^{max}; z_n, \sigma_{z,n}) - \Phi(z_k^{min}; z_n, \sigma_{z,n}) \right)
+\frac{\partial \rho_{\text{sim}}(i,j,k)}{\partial x_n} = \epsilon_n \left( \frac{e^{\frac{-(x_i^{max} - x_n)^2}{2\sigma_{x,n}^2}} - e^{\frac{-(x_i^{min} - x_n)^2}{2\sigma_{x,n}^2}}}{\sqrt{2\pi}\sigma_{x,n}} \right) \times \left( \Phi(y_j^{max}; y_n, \sigma_{y,n}) - \Phi(y_j^{min}; y_n, \sigma_{y,n}) \right) \times \left( \Phi(z_k^{max}; z_n, \sigma_{z,n}) - \Phi(z_k^{min}; z_n, \sigma_{z,n}) \right)
 $$
 

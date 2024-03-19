@@ -40,8 +40,8 @@ if __name__ == '__main__':
                   # "runSteps":[10000000],
                   "abp": ['FAS', 'CAM', 'CBP', 'AAC', 'AAC2', 'CAM2'],
                   "simulation_platform": ["OpenCL"]}
-    test_parameters = {"simulation_platform": "CUDA",
-                       "run_time": 8,
+    test_parameters = {"simulation_platform": "OpenCL",
+                       #"run_time": 8,
                        "abp":'FAS',
                        "disorder": 0,
                        }
@@ -196,7 +196,7 @@ if __name__ == '__main__':
 
     extra_bonds = pd.DataFrame(extra_bonds, columns=s.bonds.columns,
                                index=range(s.bonds.index.max() + 1, s.bonds.index.max() + 1 + len(extra_bonds)))
-    s.bonds = s.bonds.append(extra_bonds)
+    s.bonds = pd.concat([s.bonds, extra_bonds], ignore_index=True)
 
     # Check that the bonds correspond with the correct molecule
     s.bonds = s.bonds[(s.bonds['molecule'] == s.atom_list['residue_name'].loc[s.bonds['i']].values) |

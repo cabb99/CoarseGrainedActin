@@ -6,6 +6,7 @@ Handles the system class for openMM
 # Global imports
 import warnings
 
+#Import openmm
 try:
     import openmm
     import openmm.app
@@ -679,7 +680,7 @@ class CoarseActin:
         cw4 = np.array(virtual_sites_definition.loc[[('CaMKII', 'C7')], ['w12', 'w13', 'wcross']].squeeze())
 
         # Virtual sites
-        for _, res in self.atom_list.groupby(['chain_index', 'residue_id']):
+        for chain_res, res in self.atom_list.groupby(['chain_index', 'residue_id']):
             assert len(res['residue_name'].unique()) == 1, print(len(res['residue_name'].unique()), _,
                                                                  res['residue_name'].unique())
             resname = res['residue_name'].unique()[0]
@@ -750,6 +751,22 @@ class CoarseActin:
                 self.system.setVirtualSite(ix['C07'], c07)
                 self.system.setVirtualSite(ix['C10'], c10)
                 self.system.setVirtualSite(ix['Cc'], cc)
+            if resname == 'AAC':
+                res2=self.atom_list[(self.atom_list['chain_index']==chain_res[0]) & (self.atom_list['residue_index']!=chain_res[1])]
+                ix2 = dict(list(zip(res2['atom_name'], res2['atom_index'])))
+                print(chain_res)
+                print(res2)
+                print(ix2)
+                # Parent sites
+                c1 = ix['Cb']
+                c2 = ix2['Cb']
+                print(ix)
+                # Virtual site positions
+                cy1 = openmm.TwoParticleAverageSite(c1, c2, 0.8, 0.2)
+                cy2 = openmm.TwoParticleAverageSite(c1, c2, 0.6, 0.4)
+                # Set up virtual positions
+                self.system.setVirtualSite(ix['Cy1'], cy1)
+                self.system.setVirtualSite(ix['Cy2'], cy2)
         self.atom_list['Virtual'] = [self.system.isVirtualSite(a) for a in range(len(self.atom_list))]
 
     def ComputeTopology(self):
@@ -825,7 +842,7 @@ class CoarseActin:
         """ Removes all forces from the system """
         [self.system.removeForce(0) for i, f in enumerate(self.system.getForces())]
 
-    def setForces(self, PlaneConstraint=False, CaMKII_Force='multigaussian', AlignmentConstraint=False):
+    def setForces(self, PlaneConstraint=False, forces=['multigaussian'], AlignmentConstraint=False):
         """ Adds the forces to the system """
         self.clearForces()
         # Harmonic Bonds
@@ -916,7 +933,9 @@ class CoarseActin:
         Cc = self.atom_list[self.atom_list['atom_name'] == 'Cc'].index
         comb = [(0, 6), (1, 7), (2, 8), (3, 9), (4, 10), (5, 11)]
 
-        if CaMKII_Force=='multigaussian':
+        if 'multigaussian' in forces: 
+            print('multigaussian')
+
             for i, j in comb:
                 gaussian = openmm.CustomHbondForce("-g_eps*g1;"
                                                          "g1=(exp(-dd/w1)+exp(-dd/w2))/2;"
@@ -948,7 +967,9 @@ class CoarseActin:
                     gaussian.addDonor(d1, d2, d3)
 
                 self.system.addForce(gaussian)
-        elif CaMKII_Force=='doublegaussian':
+        if 'doublegaussian' in forces:
+            print('doublegaussian')
+
             for i, j in comb:
                 gaussian = openmm.CustomHbondForce("-g_eps*g1;"
                                                          "g1=(exp(-dd/w1)+exp(-dd/w2))/2;"
@@ -979,7 +1000,9 @@ class CoarseActin:
                     gaussian.addDonor(d1, d2, d3)
 
                 self.system.addForce(gaussian)
-        if CaMKII_Force=='singlegaussian':
+        if 'singlegaussian' in forces:
+            print('singleguassian')
+
             gaussian = openmm.CustomHbondForce("-g_eps*g1;"
                                                      "g1=(exp(-dd/w1)+exp(-dd/w2))/2;"
                                                      "dd= distance(a1,d1);")
@@ -1007,8 +1030,9 @@ class CoarseActin:
                 gaussian.addDonor(d1, -1, -1)
 
             self.system.addForce(gaussian)
-        elif CaMKII_Force == 'abp':
-            gaussian = openmm.CustomHbondForce("-g_eps*g1;"
+        if 'abp' in forces: 
+            print('ABP')
+            gaussian = openmm.CustomHbondForce("-g_eps_ABP*g1;"
                                                "g1=(exp(-dd/w1)+exp(-dd/w2))/2;"
                                                "dd=(dist1^2+dist2^2+dist3^2)/3;"
                                                "dist1= distance(a1,d1);"
@@ -1020,7 +1044,7 @@ class CoarseActin:
                 gaussian.setNonbondedMethod(gaussian.CutoffPeriodic)
             else:
                 gaussian.setNonbondedMethod(gaussian.CutoffNonPeriodic)
-            gaussian.addGlobalParameter('g_eps', 100)  # Energy minimum
+            gaussian.addGlobalParameter('g_eps_ABP', 100)  # Energy minimum
             gaussian.addGlobalParameter('w1', 5.0)  # well1 width
             gaussian.addGlobalParameter('w2', 0.5)  # well2 width
             gaussian.setCutoffDistance(12)
